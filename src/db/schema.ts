@@ -11,6 +11,7 @@ export const orders = pgTable("orders", {
   retouchRequirements: text("retouch_requirements"),
   ceramicShape: text("ceramic_shape").notNull(),
   ceramicShapeCustom: text("ceramic_shape_custom"),
+  ceramicBevel: text("ceramic_bevel"),
   ceramicSize: text("ceramic_size").notNull(),
   ceramicSizeCustom: text("ceramic_size_custom"),
   backgroundRequirements: text("background_requirements").notNull(),

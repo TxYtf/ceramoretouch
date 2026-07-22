@@ -42,11 +42,23 @@ function writeOrders(orders: any[]) {
   }
 }
 
+// Helper to safely get cleaned MANAGER_PIN
+function getManagerPin(): string {
+  const rawPin = process.env.MANAGER_PIN;
+  const isEnvSet = Boolean(rawPin);
+  const pin = rawPin || "1234";
+  const cleaned = pin.replace(/^['"]|['"]$/g, "").trim();
+  return cleaned;
+}
+
 // Middleware to authorize manager requests using custom header X-Admin-Pin
 function checkManagerAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const pin = req.headers["x-admin-pin"];
-  const correctPin = process.env.MANAGER_PIN || "1234";
-  if (!pin || pin !== correctPin) {
+  const headerPin = req.headers["x-admin-pin"];
+  const correctPin = getManagerPin();
+  const inputPin = typeof headerPin === "string" ? headerPin.trim().replace(/^['"]|['"]$/g, "") : "";
+  
+  if (!headerPin || inputPin !== correctPin) {
+    console.warn(`[AUTH FAIL] checkManagerAuth path=${req.path}: env.MANAGER_PIN_exists=${Boolean(process.env.MANAGER_PIN)}, expected_length=${correctPin.length}, received_length=${inputPin.length}`);
     return res.status(401).json({ error: "Неавторизований доступ. Неправильний PIN-код або термін дії сесії закінчився." });
   }
   next();
@@ -55,11 +67,30 @@ function checkManagerAuth(req: express.Request, res: express.Response, next: exp
 // API endpoint to verify manager PIN code
 app.post("/api/admin/verify-pin", (req, res) => {
   const { pin } = req.body;
-  const correctPin = process.env.MANAGER_PIN || "1234";
-  if (pin === correctPin) {
+  const rawEnvPin = process.env.MANAGER_PIN;
+  const correctPin = getManagerPin();
+  const inputPin = typeof pin === "string" ? pin.trim().replace(/^['"]|['"]$/g, "") : "";
+
+  console.log(`[VERIFY PIN] Attempt:`, {
+    isEnvVarDefined: Boolean(rawEnvPin),
+    expectedPinLength: correctPin.length,
+    inputPinType: typeof pin,
+    inputPinLength: inputPin.length,
+    matchSuccess: inputPin === correctPin,
+  });
+
+  if (pin && inputPin === correctPin) {
     return res.json({ success: true });
   }
-  return res.status(401).json({ error: "Неправильний PIN-код" });
+  
+  return res.status(401).json({ 
+    error: "Неправильний PIN-код",
+    debug: {
+      isEnvVarDefined: Boolean(rawEnvPin),
+      expectedLength: correctPin.length,
+      receivedLength: inputPin.length
+    }
+  });
 });
 
 // Database Query Layer Helpers
@@ -85,6 +116,7 @@ async function insertOrderDb(order: any) {
       retouchRequirements: order.retouchRequirements || null,
       ceramicShape: order.ceramicShape,
       ceramicShapeCustom: order.ceramicShapeCustom || null,
+      ceramicBevel: order.ceramicBevel || null,
       ceramicSize: order.ceramicSize,
       ceramicSizeCustom: order.ceramicSizeCustom || null,
       backgroundRequirements: order.backgroundRequirements,
@@ -290,6 +322,12 @@ async function sendEmailNotification(order: any): Promise<{ sent: boolean; messa
 
     const displayShape = shapeTranslate[order.ceramicShape] || order.ceramicShape;
 
+    const bevelTranslate: Record<string, string> = {
+      with_bevel: "З фаскою (скруглені кути)",
+      no_bevel: "Без фаски (прямокутні кути)"
+    };
+    const displayBevel = bevelTranslate[order.ceramicBevel] || order.ceramicBevel || "Не вказано";
+
     const displaySize = order.ceramicSize === "custom" && order.ceramicSizeCustom
       ? `Індивідуальний розмір ("${order.ceramicSizeCustom}")`
       : order.ceramicSize;
@@ -333,6 +371,10 @@ async function sendEmailNotification(order: any): Promise<{ sent: boolean; messa
           <tr>
             <td style="padding: 6px 0; color: #64748b; width: 140px;"><strong>Форма заготовки:</strong></td>
             <td style="padding: 6px 0; color: #0f172a;"><strong>${displayShape}</strong></td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; width: 140px;"><strong>Тип заготовки:</strong></td>
+            <td style="padding: 6px 0; color: #0f172a;"><strong>${displayBevel}</strong></td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #64748b;"><strong>Розмір заготовки:</strong></td>
@@ -412,6 +454,12 @@ async function sendTelegramNotification(order: any): Promise<{ sent: boolean; me
 
     const displayShape = shapeTranslate[order.ceramicShape] || order.ceramicShape;
 
+    const tBevelTranslate: Record<string, string> = {
+      with_bevel: "З фаскою (скруглені кути)",
+      no_bevel: "Без фаски (прямокутні кути)"
+    };
+    const tDisplayBevel = tBevelTranslate[order.ceramicBevel] || order.ceramicBevel || "Не вказано";
+
     const displaySize = order.ceramicSize === "custom" && order.ceramicSizeCustom
       ? `Індивідуальний розмір ("${order.ceramicSizeCustom}")`
       : order.ceramicSize;
@@ -422,6 +470,7 @@ async function sendTelegramNotification(order: any): Promise<{ sent: boolean; me
     const safePhoneBackup = escapeHtml(order.phoneBackup || "");
     const safeEmail = escapeHtml(order.email || "не вказано");
     const safeShape = escapeHtml(displayShape);
+    const safeBevel = escapeHtml(tDisplayBevel);
     const safeSize = escapeHtml(displaySize);
     const safeBg = escapeHtml(order.backgroundRequirements || "немає");
     const safeRetouch = escapeHtml(order.retouchRequirements || "відсутні");
@@ -433,6 +482,7 @@ async function sendTelegramNotification(order: any): Promise<{ sent: boolean; me
       `📧 <b>Email:</b> ${safeEmail}\n\n` +
       `📐 <b>Параметри фотокераміки:</b>\n` +
       `• Форма: <b>${safeShape}</b>\n` +
+      `• Тип заготовки: <b>${safeBevel}</b>\n` +
       `• Розмір: <b>${safeSize}</b>\n\n` +
       `🎨 <b>Вимоги до фону портрета:</b>\n<i>${safeBg}</i>\n\n` +
       `📝 <b>Вимоги до ретушування:</b>\n<i>${safeRetouch}</i>\n\n` +
@@ -508,4 +558,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (process.env.VERCEL !== "1") {
+  startServer();
+}
+
+export default app;

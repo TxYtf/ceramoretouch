@@ -11,6 +11,7 @@ interface CustomerFormProps {
   onFormChange: (data: {
     shape: CeramicShape;
     shapeCustom?: string;
+    bevel?: "with_bevel" | "no_bevel" | "";
     size: string;
     photoBase64: string | null;
   }) => void;
@@ -26,6 +27,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
     retouchRequirements: "",
     ceramicShape: "",
     ceramicShapeCustom: "",
+    ceramicBevel: "",
     ceramicSize: "",
     ceramicSizeCustom: "",
     backgroundRequirements: "",
@@ -53,6 +55,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
     onFormChange({
       shape: merged.ceramicShape,
       shapeCustom: merged.ceramicShapeCustom,
+      bevel: merged.ceramicBevel,
       size: finalSize,
       photoBase64: merged.photoFile ? `data:${merged.photoFile.type};base64,${merged.photoFile.base64}` : null,
     });
@@ -181,6 +184,9 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
     if (!formData.ceramicShape) {
       tempErrors.ceramicShape = "Будь ласка, оберіть форму заготовки";
     }
+    if (!formData.ceramicBevel) {
+      tempErrors.ceramicBevel = "Будь ласка, оберіть тип заготовки (з фаскою чи без)";
+    }
     if (!formData.ceramicSize) {
       tempErrors.ceramicSize = "Будь ласка, оберіть розмір заготовки";
     } else if (formData.ceramicSize === "custom" && !formData.ceramicSizeCustom?.trim()) {
@@ -243,6 +249,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
       retouchRequirements: "",
       ceramicShape: "",
       ceramicShapeCustom: "",
+      ceramicBevel: "",
       ceramicSize: "",
       ceramicSizeCustom: "",
       backgroundRequirements: "",
@@ -311,7 +318,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
                 name="phoneMessenger"
                 value={formData.phoneMessenger}
                 onChange={handleChange}
-                placeholder="Наприклад, +380 97 123 4567"
+                placeholder="+380 99 123 4567"
                 className={`w-full px-3 py-2.5 pl-9 bg-slate-50 dark:bg-zinc-950 border ${errors.phoneMessenger ? "border-rose-400 focus:ring-rose-200 dark:focus:ring-zinc-900 bg-rose-50/10" : "border-slate-200 dark:border-zinc-800 focus:ring-blue-100 dark:focus:ring-zinc-800"} rounded-lg text-sm text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-hidden focus:ring-4 transition`}
               />
               <Phone className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-3.5" />
@@ -331,7 +338,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
                 name="phoneBackup"
                 value={formData.phoneBackup}
                 onChange={handleChange}
-                placeholder="Наприклад, +380 50 123 4567"
+                placeholder="+380 66 123 4567"
                 className="w-full px-3 py-2.5 pl-9 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 focus:ring-blue-100 dark:focus:ring-zinc-800 rounded-lg text-sm text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-hidden focus:ring-4 transition"
               />
               <Phone className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-3.5" />
@@ -368,91 +375,157 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Ceramic Shape Selection */}
-          <div id="ceramicShape">
-            <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-2.5">
-              Форма заготовки <span className="text-rose-500">*</span>
-            </label>
-            <div className={`grid grid-cols-2 gap-2 p-1 rounded-xl border ${errors.ceramicShape ? "border-rose-200 dark:border-rose-900/30 bg-rose-50/10" : "border-transparent"}`}>
-              {SHAPE_OPTIONS.map((shapeOpt) => (
-                <button
-                  type="button"
-                  key={shapeOpt.id}
-                  onClick={() => {
-                    setFormData((prev) => ({ 
-                      ...prev, 
-                      ceramicShape: shapeOpt.id, 
-                      ceramicShapeCustom: "" 
-                    }));
-                    notifyParent({ ceramicShape: shapeOpt.id, ceramicShapeCustom: "" });
-                    if (errors.ceramicShape) {
-                      setErrors((prev) => {
-                        const copy = { ...prev };
-                        delete copy["ceramicShape"];
-                        return copy;
-                      });
-                    }
-                  }}
-                  className={`p-3 border text-left rounded-xl transition cursor-pointer flex flex-col justify-between h-full ${formData.ceramicShape === shapeOpt.id ? "bg-blue-50/60 dark:bg-zinc-800/40 border-blue-500 text-blue-900 dark:text-zinc-300 shadow-xs font-semibold" : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-700 dark:text-zinc-300 bg-white dark:bg-zinc-900"}`}
-                >
-                  <span className="font-bold text-xs">{shapeOpt.name}</span>
-                  <span className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1 leading-tight">{shapeOpt.description}</span>
-                </button>
-              ))}
-            </div>
-            {errors.ceramicShape && <p className="text-rose-500 text-[11px] mt-1.5 flex items-center gap-1 font-medium"><AlertCircle className="w-3 h-3" /> {errors.ceramicShape}</p>}
-
-            {/* If shape is other, show customized text field */}
-            {formData.ceramicShape === "other" && (
-              <div className="mt-3 animate-fade-in" id="ceramicShapeCustom">
-                <label className="block text-[11px] font-bold text-blue-700 dark:text-blue-400 mb-1">
-                  Вкажіть форму заготовки <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="ceramicShapeCustom"
-                  value={formData.ceramicShapeCustom || ""}
-                  onChange={handleChange}
-                  placeholder="Наприклад: серце, кругла тощо"
-                  className={`w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border ${errors.ceramicShapeCustom ? "border-rose-400 focus:ring-rose-200 dark:focus:ring-zinc-900 bg-rose-50/10" : "border-slate-200 dark:border-zinc-800 focus:ring-blue-100 dark:focus:ring-zinc-800"} rounded-lg text-sm text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-hidden focus:ring-4 transition`}
-                />
-                {errors.ceramicShapeCustom && <p className="text-rose-500 text-[10px] mt-1 flex items-center gap-1 font-medium"><AlertCircle className="w-3 h-3" /> {errors.ceramicShapeCustom}</p>}
-              </div>
-            )}
-          </div>
-
-          {/* Size Selection */}
-          <div id="ceramicSize">
-            <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-2.5">
-              Розмір заготовки <span className="text-rose-500">*</span>
-            </label>
-            <div className={`grid grid-cols-2 gap-2 p-1 rounded-xl border ${errors.ceramicSize ? "border-rose-200 dark:border-rose-900/30 bg-rose-50/10" : "border-transparent"}`}>
-              {standardSizes.map((size) => (
-                <button
-                  type="button"
-                  key={size}
-                  onClick={() => {
-                    setFormData((prev) => ({ ...prev, ceramicSize: size, ceramicSizeCustom: "" }));
-                    notifyParent({ ceramicSize: size, ceramicSizeCustom: "" });
-                    if (errors.ceramicSize) {
-                      setErrors((prev) => {
-                        const copy = { ...prev };
-                        delete copy["ceramicSize"];
-                        return copy;
-                      });
-                    }
-                  }}
-                  className={`py-2.5 px-3 border rounded-lg text-xs font-bold text-center transition cursor-pointer ${formData.ceramicSize === size ? "bg-blue-600 text-white border-blue-600 shadow-xs" : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-300 bg-white dark:bg-zinc-900"}`}
-                >
-                  {size}
-                </button>
-              ))}
+        {/* Ceramic Shape Selection */}
+        <div id="ceramicShape">
+          <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-2.5">
+            Форма заготовки <span className="text-rose-500">*</span>
+          </label>
+          <div className={`flex flex-wrap gap-2 p-1 rounded-xl border ${errors.ceramicShape ? "border-rose-200 dark:border-rose-900/30 bg-rose-50/10" : "border-transparent"}`}>
+            {SHAPE_OPTIONS.map((shapeOpt) => (
               <button
                 type="button"
+                key={shapeOpt.id}
                 onClick={() => {
-                  setFormData((prev) => ({ ...prev, ceramicSize: "custom" }));
-                  notifyParent({ ceramicSize: "custom" });
+                  setFormData((prev) => ({ 
+                    ...prev, 
+                    ceramicShape: shapeOpt.id, 
+                    ceramicShapeCustom: "" 
+                  }));
+                  notifyParent({ ceramicShape: shapeOpt.id, ceramicShapeCustom: "" });
+                  if (errors.ceramicShape) {
+                    setErrors((prev) => {
+                      const copy = { ...prev };
+                      delete copy["ceramicShape"];
+                      return copy;
+                    });
+                  }
+                }}
+                className={`flex-1 min-w-[140px] p-3 border text-left rounded-xl transition cursor-pointer flex flex-col justify-between ${formData.ceramicShape === shapeOpt.id ? "bg-blue-50/60 dark:bg-zinc-800/40 border-blue-500 text-blue-900 dark:text-zinc-300 shadow-xs font-semibold" : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-700 dark:text-zinc-300 bg-white dark:bg-zinc-900"}`}
+              >
+                <span className="font-bold text-xs">{shapeOpt.name}</span>
+                <span className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1 leading-tight">{shapeOpt.description}</span>
+              </button>
+            ))}
+          </div>
+          {errors.ceramicShape && <p className="text-rose-500 text-[11px] mt-1.5 flex items-center gap-1 font-medium"><AlertCircle className="w-3 h-3" /> {errors.ceramicShape}</p>}
+        </div>
+
+        {/* Bevel Selection (Chamfer) */}
+        <div id="ceramicBevel" className="border-t border-slate-100 dark:border-zinc-800/60 pt-4">
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+              Тип заготовки (обробка фаски) <span className="text-rose-500">*</span>
+            </label>
+            {formData.ceramicBevel && (
+              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-zinc-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-blue-500" />
+                {formData.ceramicBevel === "with_bevel" ? "З фаскою" : "Без фаски"}
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-normal mb-3">
+            Заготовка — це керамогранітна пластина товщиною 8...12 мм. Оберіть бажаний варіант обробки країв на лицевій поверхні:
+          </p>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* With Bevel */}
+            <button
+              type="button"
+              onClick={() => {
+                setFormData((prev) => ({ ...prev, ceramicBevel: "with_bevel" }));
+                notifyParent({ ceramicBevel: "with_bevel" });
+                if (errors.ceramicBevel) {
+                  setErrors((prev) => {
+                    const copy = { ...prev };
+                    delete copy["ceramicBevel"];
+                    return copy;
+                  });
+                }
+              }}
+              className={`p-3.5 border text-left rounded-xl transition cursor-pointer flex flex-col justify-between h-full relative ${
+                formData.ceramicBevel === "with_bevel"
+                  ? "bg-blue-50/80 dark:bg-zinc-800/80 border-blue-500 ring-2 ring-blue-500/20 text-blue-950 dark:text-zinc-100 shadow-xs font-semibold"
+                  : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-700 dark:text-zinc-300 bg-white dark:bg-zinc-900"
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="font-bold text-xs flex items-center gap-1.5 text-slate-900 dark:text-zinc-100">
+                    ✨ З фаскою (скруглені краї)
+                  </span>
+                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                    formData.ceramicBevel === "with_bevel" 
+                      ? "border-blue-600 bg-blue-600 text-white" 
+                      : "border-slate-300 dark:border-zinc-600"
+                  }`}>
+                    {formData.ceramicBevel === "with_bevel" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  </div>
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight block">
+                  Має плавне скруглення двох кутів уздовж найдовшої сторони <strong>у перерізі</strong>. Краї виглядають згладженими та м'якими. Як правило, використовується для приклеювання до поверхні пам'ятника без ніші.
+                </span>
+              </div>
+            </button>
+
+            {/* Without Bevel */}
+            <button
+              type="button"
+              onClick={() => {
+                setFormData((prev) => ({ ...prev, ceramicBevel: "no_bevel" }));
+                notifyParent({ ceramicBevel: "no_bevel" });
+                if (errors.ceramicBevel) {
+                  setErrors((prev) => {
+                    const copy = { ...prev };
+                    delete copy["ceramicBevel"];
+                    return copy;
+                  });
+                }
+              }}
+              className={`p-3.5 border text-left rounded-xl transition cursor-pointer flex flex-col justify-between h-full relative ${
+                formData.ceramicBevel === "no_bevel"
+                  ? "bg-blue-50/80 dark:bg-zinc-800/80 border-blue-500 ring-2 ring-blue-500/20 text-blue-950 dark:text-zinc-100 shadow-xs font-semibold"
+                  : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-700 dark:text-zinc-300 bg-white dark:bg-zinc-900"
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="font-bold text-xs flex items-center gap-1.5 text-slate-900 dark:text-zinc-100">
+                    📐 Без фаски (прямокутні краї)
+                  </span>
+                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                    formData.ceramicBevel === "no_bevel" 
+                      ? "border-blue-600 bg-blue-600 text-white" 
+                      : "border-slate-300 dark:border-zinc-600"
+                  }`}>
+                    {formData.ceramicBevel === "no_bevel" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  </div>
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight block">
+                  <strong>У перерізі</strong> заготовка виглядає як класичний прямокутник без скруглення лицьових кутів. Краї рівні та чіткі. Використовується для вмонтування у нішу, вирізану у поверхні стели або під рамку.
+                </span>
+              </div>
+            </button>
+          </div>
+          {errors.ceramicBevel && (
+            <p className="text-rose-500 text-[11px] mt-1.5 flex items-center gap-1 font-medium">
+              <AlertCircle className="w-3 h-3" /> {errors.ceramicBevel}
+            </p>
+          )}
+        </div>
+
+        {/* Size Selection */}
+        <div id="ceramicSize" className="border-t border-slate-100 dark:border-zinc-800/60 pt-4">
+          <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-2.5">
+            Розмір заготовки <span className="text-rose-500">*</span>
+          </label>
+          <div className={`grid grid-cols-2 gap-2 p-1 rounded-xl border ${errors.ceramicSize ? "border-rose-200 dark:border-rose-900/30 bg-rose-50/10" : "border-transparent"}`}>
+            {standardSizes.map((size) => (
+              <button
+                type="button"
+                key={size}
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, ceramicSize: size, ceramicSizeCustom: "" }));
+                  notifyParent({ ceramicSize: size, ceramicSizeCustom: "" });
                   if (errors.ceramicSize) {
                     setErrors((prev) => {
                       const copy = { ...prev };
@@ -461,31 +534,48 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
                     });
                   }
                 }}
-                className={`py-2.5 px-3 border rounded-lg text-xs font-bold text-center transition cursor-pointer ${formData.ceramicSize === "custom" ? "bg-blue-600 text-white border-blue-600 shadow-xs" : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-300 bg-white dark:bg-zinc-900"}`}
+                className={`py-2.5 px-3 border rounded-lg text-xs font-bold text-center transition cursor-pointer ${formData.ceramicSize === size ? "bg-blue-600 text-white border-blue-600 shadow-xs" : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-300 bg-white dark:bg-zinc-900"}`}
               >
-                Задати розмір...
+                {size}
               </button>
-            </div>
-            {errors.ceramicSize && <p className="text-rose-500 text-[11px] mt-1.5 flex items-center gap-1 font-medium"><AlertCircle className="w-3 h-3" /> {errors.ceramicSize}</p>}
-
-            {/* If size is custom, show customized text field */}
-            {formData.ceramicSize === "custom" && (
-              <div className="mt-3 animate-fade-in" id="ceramicSizeCustom">
-                <label className="block text-[11px] font-bold text-blue-700 dark:text-blue-400 mb-1">
-                  Задати розмір заготовки <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="ceramicSizeCustom"
-                  value={formData.ceramicSizeCustom || ""}
-                  onChange={handleChange}
-                  placeholder="Вкажіть потрібний розмір, наприклад: 50х70 см"
-                  className={`w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border ${errors.ceramicSizeCustom ? "border-rose-400 focus:ring-rose-200 dark:focus:ring-zinc-900 bg-rose-50/10" : "border-slate-200 dark:border-zinc-800 focus:ring-blue-100 dark:focus:ring-zinc-800"} rounded-lg text-sm text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-hidden focus:ring-4 transition`}
-                />
-                {errors.ceramicSizeCustom && <p className="text-rose-500 text-[10px] mt-1 flex items-center gap-1 font-medium"><AlertCircle className="w-3 h-3" /> {errors.ceramicSizeCustom}</p>}
-              </div>
-            )}
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setFormData((prev) => ({ ...prev, ceramicSize: "custom" }));
+                notifyParent({ ceramicSize: "custom" });
+                if (errors.ceramicSize) {
+                  setErrors((prev) => {
+                    const copy = { ...prev };
+                    delete copy["ceramicSize"];
+                    return copy;
+                  });
+                }
+              }}
+              className={`py-2.5 px-3 border rounded-lg text-xs font-bold text-center transition cursor-pointer ${formData.ceramicSize === "custom" ? "bg-blue-600 text-white border-blue-600 shadow-xs" : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-300 bg-white dark:bg-zinc-900"}`}
+            >
+              Задати розмір...
+            </button>
           </div>
+          {errors.ceramicSize && <p className="text-rose-500 text-[11px] mt-1.5 flex items-center gap-1 font-medium"><AlertCircle className="w-3 h-3" /> {errors.ceramicSize}</p>}
+
+          {/* If size is custom, show customized text field */}
+          {formData.ceramicSize === "custom" && (
+            <div className="mt-3 animate-fade-in" id="ceramicSizeCustom">
+              <label className="block text-[11px] font-bold text-blue-700 dark:text-blue-400 mb-1">
+                Задати розмір заготовки <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="ceramicSizeCustom"
+                value={formData.ceramicSizeCustom || ""}
+                onChange={handleChange}
+                placeholder="Вкажіть розміри у сантиметрах, наприклад: 50х30"
+                className={`w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border ${errors.ceramicSizeCustom ? "border-rose-400 focus:ring-rose-200 dark:focus:ring-zinc-900 bg-rose-50/10" : "border-slate-200 dark:border-zinc-800 focus:ring-blue-100 dark:focus:ring-zinc-800"} rounded-lg text-sm text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-hidden focus:ring-4 transition`}
+              />
+              {errors.ceramicSizeCustom && <p className="text-rose-500 text-[10px] mt-1 flex items-center gap-1 font-medium"><AlertCircle className="w-3 h-3" /> {errors.ceramicSizeCustom}</p>}
+            </div>
+          )}
         </div>
 
         {/* Text Field for Background Requirements */}
@@ -499,7 +589,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
             rows={3}
             value={formData.backgroundRequirements}
             onChange={handleChange}
-            placeholder="Опишіть детально ваші вимоги щодо фону. Наприклад: 'хочу однотонний світло-сірий фон з плавним градієнтом', 'голубе небо та легкі білі хмаринки', 'темний художній фон', 'залишити оригінальний фон, лише прибрати зайві деталі' тощо..."
+            placeholder="Опишіть детально ваші вимоги щодо фону. Наприклад: 'однотонний світло-сірий фон з плавним градієнтом', 'голубе небо та легкі білі хмари', 'залишити оригінальний фон, лише прибрати зайві деталі' тощо..."
             className={`w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border ${errors.backgroundRequirements ? "border-rose-400 focus:ring-rose-200 dark:focus:ring-zinc-900 bg-rose-50/10" : "border-slate-200 dark:border-zinc-800 focus:ring-blue-100 dark:focus:ring-zinc-800"} rounded-lg text-sm text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-hidden focus:ring-4 transition resize-y`}
           />
           {errors.backgroundRequirements && <p className="text-rose-500 text-[11px] mt-1 flex items-center gap-1 font-medium"><AlertCircle className="w-3 h-3" /> {errors.backgroundRequirements}</p>}
@@ -518,7 +608,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
 
         <div>
           <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 mb-2">
-            Фотографія клієнта для ретушування <span className="text-rose-500">*</span>
+            Фотографія для ретушування <span className="text-rose-500">*</span>
           </label>
           <input
             type="file"
@@ -598,7 +688,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ onFormChange }) => {
             rows={3}
             value={formData.retouchRequirements}
             onChange={handleChange}
-            placeholder="Вкажіть побажання: наприклад, заміна одягу на костюм або вишиванку, виправлення дефектів, ретушування обличчя, освітлення, додавання золотого обідка, напис з ПІБ та датами тощо..."
+            placeholder="Вкажіть побажання: наприклад, заміна одягу на темний костюм з краваткою, одягнути вишиванку, виправлення дефектів, ретушування обличчя, освітлення тощо..."
             className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-hidden focus:ring-4 focus:ring-blue-100 dark:focus:ring-zinc-800 transition resize-y"
           />
         </div>

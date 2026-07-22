@@ -302,7 +302,8 @@ export const AdminPanel: React.FC = () => {
                               ? "Прямокутник" 
                               : order.ceramicShape === "arch" 
                                 ? "Арка" 
-                                : order.ceramicShape} • {order.ceramicSize === "custom" && order.ceramicSizeCustom ? order.ceramicSizeCustom : order.ceramicSize}
+                                : order.ceramicShape}
+                        {order.ceramicBevel && ` (${order.ceramicBevel === "with_bevel" ? "з фаскою" : "без фаски"})`} • {order.ceramicSize === "custom" && order.ceramicSizeCustom ? order.ceramicSizeCustom : order.ceramicSize}
                       </span>
                     </div>
                   </div>
@@ -441,7 +442,7 @@ export const AdminPanel: React.FC = () => {
               </div>
 
               {/* Product details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-xs text-slate-400 dark:text-zinc-500 block">Форма заготовки:</span>
                   <span className="font-bold text-slate-800 dark:text-zinc-200">
@@ -454,6 +455,17 @@ export const AdminPanel: React.FC = () => {
                           : selectedOrder.ceramicShape === "arch" 
                             ? "Арка" 
                             : selectedOrder.ceramicShape}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-xs text-slate-400 dark:text-zinc-500 block">Тип заготовки (фаска):</span>
+                  <span className="font-bold text-slate-800 dark:text-zinc-200">
+                    {selectedOrder.ceramicBevel === "with_bevel" 
+                      ? "З фаскою (скруглена)" 
+                      : selectedOrder.ceramicBevel === "no_bevel" 
+                        ? "Без фаски (пряма)" 
+                        : "Не вказано"}
                   </span>
                 </div>
 

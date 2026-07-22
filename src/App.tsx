@@ -64,11 +64,13 @@ export default function App() {
   const [preview, setPreview] = useState<{
     shape: CeramicShape;
     shapeCustom?: string;
+    bevel?: "with_bevel" | "no_bevel" | "";
     size: string;
     photoBase64: string | null;
   }>({
     shape: "",
     shapeCustom: "",
+    bevel: "",
     size: "",
     photoBase64: null,
   });
@@ -234,6 +236,7 @@ export default function App() {
               <CeramicPreview
                 shape={preview.shape}
                 shapeCustom={preview.shapeCustom}
+                bevel={preview.bevel}
                 size={preview.size}
                 photoBase64={preview.photoBase64}
               />

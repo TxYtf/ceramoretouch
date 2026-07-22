@@ -4,6 +4,7 @@ import { CeramicShape, TEMPLATE_BACKGROUNDS } from "../types";
 interface CeramicPreviewProps {
   shape: CeramicShape;
   shapeCustom?: string;
+  bevel?: "with_bevel" | "no_bevel" | "";
   size: string;
   photoBase64: string | null;
 }
@@ -11,6 +12,7 @@ interface CeramicPreviewProps {
 export const CeramicPreview: React.FC<CeramicPreviewProps> = ({
   shape,
   shapeCustom,
+  bevel,
   size,
   photoBase64,
 }) => {
@@ -41,8 +43,8 @@ export const CeramicPreview: React.FC<CeramicPreviewProps> = ({
         // Classic arch: rounded top, flat bottom
         return "rounded-t-[120px] rounded-b-2xl aspect-[3/4] border-8 border-amber-100/90 shadow-[inset_0_4px_12px_rgba(255,255,255,0.6),0_15px_30px_rgba(0,0,0,0.15)]";
       case "other":
-        // Custom decorative badge style for other shapes
-        return "rounded-3xl aspect-[3/4] border-8 border-dashed border-amber-200/80 shadow-[inset_0_4px_12px_rgba(255,255,255,0.6),0_15px_30px_rgba(0,0,0,0.15)]";
+        // Clean container without rounded-2xl or border-8 because clip-path and custom SVG border handles it
+        return "aspect-[3/4] shadow-[inset_0_4px_12px_rgba(255,255,255,0.6)]";
       case "rectangle":
       default:
         return "rounded-2xl aspect-[3/4] border-8 border-amber-100/90 shadow-[inset_0_4px_12px_rgba(255,255,255,0.6),0_15px_30px_rgba(0,0,0,0.15)]";
@@ -101,29 +103,64 @@ export const CeramicPreview: React.FC<CeramicPreviewProps> = ({
     if (shape === "oval") return "Класичний Овал";
     if (shape === "rectangle") return "Прямокутник";
     if (shape === "arch") return "Арка";
-    if (shape === "other") return shapeCustom ? `Форма: "${shapeCustom}"` : "Інша форма";
+    if (shape === "other") return "Інша форма (Індивідуальна, задана клієнтом)";
     return "Заготовка";
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm">
+    <div className="flex flex-col items-center justify-center p-5 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl shadow-xs">
       <div className="text-center mb-4">
         <span className="text-[10px] font-bold tracking-wider uppercase bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full border border-blue-100 dark:border-blue-900/40">
-          3D-Стилізована Візуалізація
+          Стилізована Візуалізація
         </span>
-        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mt-2">
-          {currentShapeLabel()} {size ? ` • ${size}` : ""}
+        <h4 className="text-sm font-bold text-slate-700 dark:text-zinc-300 mt-2 flex items-center justify-center gap-2 flex-wrap">
+          <span>{currentShapeLabel()} {size ? ` • ${size}` : ""}</span>
+          {bevel && (
+            <span className="text-[10px] px-2 py-0.5 rounded-md font-bold bg-blue-50 dark:bg-zinc-800 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-zinc-700">
+              {bevel === "with_bevel" ? "З фаскою" : "Без фаски"}
+            </span>
+          )}
         </h4>
       </div>
 
       {/* Ceramic Plaque Body */}
-      <div className="w-56 max-w-full relative group transition-transform duration-500 hover:scale-[1.02] my-3">
-        {/* Porcelain Depth shadow backing */}
-        <div className="absolute inset-0 bg-slate-900/10 rounded-[inherit] blur-md translate-y-3 pointer-events-none" />
+      <div 
+        className="w-56 max-w-full relative group transition-transform duration-500 hover:scale-[1.02] my-3"
+        style={shape === "other" ? { filter: "drop-shadow(0 15px 25px rgba(0,0,0,0.18))" } : undefined}
+      >
+        {/* Porcelain Depth shadow backing (hidden for 'other' as drop-shadow filter handles it perfectly) */}
+        {shape !== "other" && (
+          <div className="absolute inset-0 bg-slate-900/10 rounded-[inherit] blur-md translate-y-3 pointer-events-none" />
+        )}
         
         {/* Plaque border outer container */}
-        <div className={`${getShapeClasses()} overflow-hidden bg-white dark:bg-slate-800 relative border-slate-100 dark:border-slate-800`}>
+        <div 
+          className={`${getShapeClasses()} overflow-hidden bg-white dark:bg-slate-800 relative border-slate-100 dark:border-slate-800`}
+          style={shape === "other" ? { clipPath: "url(#trapezoid-clip)", WebkitClipPath: "url(#trapezoid-clip)" } : undefined}
+        >
           {renderPlaqueContent()}
+
+          {/* Precision custom SVG border drawn over the clipped trapezoid to avoid pixel jaggedness */}
+          {shape === "other" && (
+            <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
+              {/* Outer amber/porcelain border: strokeWidth=16 centered on path results in exactly 8px on-screen thickness (outer half is clipped) */}
+              <path 
+                d="M 0,95 L 0,5 Q 0,0 5,0 L 60,0 Q 80,0 80,20 L 98,92 Q 100,100 95,100 L 5,100 Q 0,100 0,95 Z" 
+                stroke="#fef3c7" 
+                strokeWidth="16" 
+                fill="none" 
+                vectorEffect="non-scaling-stroke" 
+              />
+              {/* Golden inner line decoration */}
+              <path 
+                d="M 3.5,91.5 L 3.5,8.5 Q 3.5,3.5 8.5,3.5 L 56.5,3.5 Q 73.5,3.5 73.5,18.5 L 91.5,86.5 Q 93.5,94.5 88.5,94.5 L 8.5,94.5 Q 3.5,94.5 3.5,91.5 Z" 
+                stroke="rgba(234, 179, 8, 0.25)" 
+                strokeWidth="1.5" 
+                fill="none" 
+                vectorEffect="non-scaling-stroke" 
+              />
+            </svg>
+          )}
         </div>
 
         {/* Real gloss reflection glare highlight overlay */}
@@ -168,6 +205,15 @@ export const CeramicPreview: React.FC<CeramicPreviewProps> = ({
       <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-4 text-center leading-relaxed">
         * Це візуальна примірка заготовки. Реальний дизайнер проведе точне ретушування, заміну чи делікатну обробку фону вручну за вашими текстовими вказівками у формі.
       </p>
+
+      {/* Responsive objectBoundingBox clipPath definition for custom trapezoid shape */}
+      <svg className="absolute w-0 h-0" width="0" height="0">
+        <defs>
+          <clipPath id="trapezoid-clip" clipPathUnits="objectBoundingBox">
+            <path d="M 0,0.95 L 0,0.05 Q 0,0 0.05,0 L 0.60,0 Q 0.80,0 0.80,0.20 L 0.98,0.92 Q 1.00,1.00 0.95,1.00 L 0.05,1.00 Q 0,1.00 0,0.95 Z" />
+          </clipPath>
+        </defs>
+      </svg>
     </div>
   );
 };

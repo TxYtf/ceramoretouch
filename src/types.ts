@@ -31,6 +31,7 @@ export interface OrderFormData {
   retouchRequirements: string;
   ceramicShape: CeramicShape;
   ceramicShapeCustom?: string; // Текст для опції "інше _________"
+  ceramicBevel: "with_bevel" | "no_bevel" | ""; // з фаскою чи без фаски
   ceramicSize: string;         // "13х18", "18х24", "24х30", "30х40", "40х60" або "custom"
   ceramicSizeCustom?: string;  // Текст для опції "задати розмір __________"
   backgroundRequirements: string; // Текстовий опис вимог щодо фону портрета
@@ -64,8 +65,8 @@ export const SHAPE_OPTIONS: ShapeOption[] = [
   },
   {
     id: "other",
-    name: "Інше",
-    description: "Нестандартна форма заготовки (вказується індивідуально)",
+    name: "Інша форма",
+    description: "Нестандартна форма заготовки (виготовляється індивідуально)",
     sizes: ["13х18 см", "18х24 см", "24х30 см", "30х40 см", "40х60 см"],
   },
 ];
