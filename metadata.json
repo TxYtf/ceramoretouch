@@ -1,0 +1,6 @@
+{
+  "name": "Photoceramics Order Portal",
+  "description": "Односторінковий портал замовлень фотокераміки та ретушування фотографій з інтеграцією Telegram та Email сповіщень",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
