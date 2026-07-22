@@ -17,6 +17,19 @@ const PORT = 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// Normalize request URLs for Vercel Serverless Function rewrites
+app.use((req, res, next) => {
+  // If Vercel rewrites /api/... to /api/index, handle x-forwarded-uri or req.url
+  const forwardedUri = req.headers["x-forwarded-uri"] as string;
+  if (forwardedUri && forwardedUri.startsWith("/api")) {
+    req.url = forwardedUri;
+  } else if (req.url.startsWith("/api/index")) {
+    req.url = req.url.replace(/^\/api\/index/, "/api");
+    if (req.url === "") req.url = "/api";
+  }
+  next();
+});
+
 const ORDERS_FILE = process.env.VERCEL === "1"
   ? path.join("/tmp", "orders.json")
   : path.join(process.cwd(), "orders.json");
@@ -589,6 +602,14 @@ async function startServer() {
     }
   });
 }
+
+// Global Express Error Handling Middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Global Express Error Handler:", err);
+  if (!res.headersSent) {
+    res.status(500).json({ error: err?.message || "Внутрішня помилка сервера" });
+  }
+});
 
 if (process.env.VERCEL !== "1") {
   startServer();

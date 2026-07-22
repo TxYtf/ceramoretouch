@@ -2,9 +2,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "./schema";
 
-const { Pool } = pg;
-
-let poolInstance: pg.Pool | null = null;
+let poolInstance: any = null;
 let drizzleInstance: ReturnType<typeof drizzle> | null = null;
 
 export const getPool = () => {
@@ -18,7 +16,12 @@ export const getPool = () => {
       console.warn("⚠️ Warning: SQL connection credentials incomplete in environment.");
     }
 
-    poolInstance = new Pool({
+    const PoolClass = pg?.Pool || (pg as any)?.default?.Pool || pg;
+    if (typeof PoolClass !== "function") {
+      throw new Error("Cannot load pg.Pool class for database connection.");
+    }
+
+    poolInstance = new PoolClass({
       host: host || "localhost",
       user: user || "postgres",
       password: password || "",
@@ -26,7 +29,7 @@ export const getPool = () => {
       connectionTimeoutMillis: 10000,
     });
 
-    poolInstance.on("error", (err) => {
+    poolInstance.on("error", (err: any) => {
       console.error("Unexpected error on idle SQL pool client:", err);
     });
   }
@@ -48,4 +51,5 @@ export const db = new Proxy({} as ReturnType<typeof drizzle>, {
     return typeof value === "function" ? value.bind(instance) : value;
   },
 });
+
 
