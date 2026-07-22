@@ -1,32 +1,51 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import * as schema from "./schema.ts";
+import * as schema from "./schema";
 
 const { Pool } = pg;
 
-export const createPool = () => {
-  const host = process.env.SQL_HOST;
-  const user = process.env.SQL_USER;
-  const password = process.env.SQL_PASSWORD;
-  const database = process.env.SQL_DB_NAME;
+let poolInstance: pg.Pool | null = null;
+let drizzleInstance: ReturnType<typeof drizzle> | null = null;
 
-  if (!host || !user || !password || !database) {
-    console.warn("⚠️ Warning: SQL connection credentials are incomplete in environment.");
+export const getPool = () => {
+  if (!poolInstance) {
+    const host = process.env.SQL_HOST;
+    const user = process.env.SQL_USER;
+    const password = process.env.SQL_PASSWORD;
+    const database = process.env.SQL_DB_NAME;
+
+    if (!host || !user || !password || !database) {
+      console.warn("⚠️ Warning: SQL connection credentials incomplete in environment.");
+    }
+
+    poolInstance = new Pool({
+      host: host || "localhost",
+      user: user || "postgres",
+      password: password || "",
+      database: database || "postgres",
+      connectionTimeoutMillis: 10000,
+    });
+
+    poolInstance.on("error", (err) => {
+      console.error("Unexpected error on idle SQL pool client:", err);
+    });
   }
-
-  return new Pool({
-    host: host,
-    user: user,
-    password: password,
-    database: database,
-    connectionTimeoutMillis: 15000,
-  });
+  return poolInstance;
 };
 
-const pool = createPool();
+export const getDb = () => {
+  if (!drizzleInstance) {
+    drizzleInstance = drizzle(getPool(), { schema });
+  }
+  return drizzleInstance;
+};
 
-pool.on("error", (err) => {
-  console.error("Unexpected error on idle SQL pool client:", err);
+// Export db proxy so top-level imports don't trigger pool creation
+export const db = new Proxy({} as ReturnType<typeof drizzle>, {
+  get(_target, prop) {
+    const instance = getDb();
+    const value = (instance as any)[prop];
+    return typeof value === "function" ? value.bind(instance) : value;
+  },
 });
 
-export const db = drizzle(pool, { schema });

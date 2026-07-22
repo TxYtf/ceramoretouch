@@ -1,12 +1,11 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { eq, desc } from "drizzle-orm";
-import { db } from "./src/db/index.ts";
-import { orders as ordersTable } from "./src/db/schema.ts";
+import { db } from "./src/db/index";
+import { orders as ordersTable } from "./src/db/schema";
 
 // Load environment variables
 dotenv.config();
@@ -18,7 +17,9 @@ const PORT = 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-const ORDERS_FILE = path.join(process.cwd(), "orders.json");
+const ORDERS_FILE = process.env.VERCEL === "1"
+  ? path.join("/tmp", "orders.json")
+  : path.join(process.cwd(), "orders.json");
 
 // Helper to read orders
 function readOrders(): any[] {
@@ -95,64 +96,91 @@ app.post("/api/admin/verify-pin", (req, res) => {
 
 // Database Query Layer Helpers
 async function getAllOrdersDb() {
-  try {
-    return await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt));
-  } catch (error) {
-    console.error("Database query (getAllOrders) failed:", error);
-    throw new Error("Не вдалося завантажити замовлення з бази даних.", { cause: error });
+  if (process.env.SQL_HOST && process.env.SQL_USER) {
+    try {
+      return await db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt));
+    } catch (error) {
+      console.error("Database query (getAllOrders) failed, falling back to local storage:", error);
+    }
   }
+  return readOrders();
 }
 
 async function insertOrderDb(order: any) {
-  try {
-    await db.insert(ordersTable).values({
-      id: order.id,
-      createdAt: new Date(order.createdAt),
-      status: order.status,
-      fullName: order.fullName,
-      phoneMessenger: order.phoneMessenger,
-      phoneBackup: order.phoneBackup || null,
-      email: order.email || null,
-      retouchRequirements: order.retouchRequirements || null,
-      ceramicShape: order.ceramicShape,
-      ceramicShapeCustom: order.ceramicShapeCustom || null,
-      ceramicBevel: order.ceramicBevel || null,
-      ceramicSize: order.ceramicSize,
-      ceramicSizeCustom: order.ceramicSizeCustom || null,
-      backgroundRequirements: order.backgroundRequirements,
-      photoFile: order.photoFile,
-    });
-  } catch (error) {
-    console.error("Database query (insertOrder) failed:", error);
-    throw new Error("Не вдалося зберегти замовлення в базі даних.", { cause: error });
+  // Always save in file storage backup
+  const currentOrders = readOrders();
+  const existingIdx = currentOrders.findIndex((o) => o.id === order.id);
+  if (existingIdx >= 0) {
+    currentOrders[existingIdx] = order;
+  } else {
+    currentOrders.unshift(order);
+  }
+  writeOrders(currentOrders);
+
+  if (process.env.SQL_HOST && process.env.SQL_USER) {
+    try {
+      await db.insert(ordersTable).values({
+        id: order.id,
+        createdAt: new Date(order.createdAt),
+        status: order.status,
+        fullName: order.fullName,
+        phoneMessenger: order.phoneMessenger,
+        phoneBackup: order.phoneBackup || null,
+        email: order.email || null,
+        retouchRequirements: order.retouchRequirements || null,
+        ceramicShape: order.ceramicShape,
+        ceramicShapeCustom: order.ceramicShapeCustom || null,
+        ceramicBevel: order.ceramicBevel || null,
+        ceramicSize: order.ceramicSize,
+        ceramicSizeCustom: order.ceramicSizeCustom || null,
+        backgroundRequirements: order.backgroundRequirements,
+        photoFile: order.photoFile,
+      });
+    } catch (error) {
+      console.error("Database insert failed, order saved in local fallback:", error);
+    }
   }
 }
 
 async function updateOrderStatusDb(id: string, status: string) {
-  try {
-    const updated = await db
-      .update(ordersTable)
-      .set({ status })
-      .where(eq(ordersTable.id, id))
-      .returning();
-    return updated[0];
-  } catch (error) {
-    console.error("Database query (updateOrderStatus) failed:", error);
-    throw new Error("Не вдалося оновити статус замовлення в базі даних.", { cause: error });
+  const currentOrders = readOrders();
+  const order = currentOrders.find((o) => o.id === id);
+  if (order) {
+    order.status = status;
+    writeOrders(currentOrders);
   }
+
+  if (process.env.SQL_HOST && process.env.SQL_USER) {
+    try {
+      const updated = await db
+        .update(ordersTable)
+        .set({ status })
+        .where(eq(ordersTable.id, id))
+        .returning();
+      if (updated.length > 0) return updated[0];
+    } catch (error) {
+      console.error("Database update failed, local order status updated:", error);
+    }
+  }
+
+  return order || { id, status };
 }
 
 async function deleteOrderDb(id: string) {
-  try {
-    const deleted = await db
-      .delete(ordersTable)
-      .where(eq(ordersTable.id, id))
-      .returning();
-    return deleted.length > 0;
-  } catch (error) {
-    console.error("Database query (deleteOrder) failed:", error);
-    throw new Error("Не вдалося видалити замовлення з бази даних.", { cause: error });
+  let currentOrders = readOrders();
+  const initialLength = currentOrders.length;
+  currentOrders = currentOrders.filter((o) => o.id !== id);
+  writeOrders(currentOrders);
+
+  if (process.env.SQL_HOST && process.env.SQL_USER) {
+    try {
+      await db.delete(ordersTable).where(eq(ordersTable.id, id));
+    } catch (error) {
+      console.error("Database delete failed, deleted locally:", error);
+    }
   }
+
+  return currentOrders.length < initialLength;
 }
 
 // Function to seed existing local orders on container boot to avoid data loss
@@ -537,7 +565,8 @@ async function sendTelegramNotification(order: any): Promise<{ sent: boolean; me
 
 // Vite and Express serving logic
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && process.env.VERCEL !== "1") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -545,16 +574,19 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
   }
 
   app.listen(PORT, "0.0.0.0", async () => {
     console.log(`Сервер працює на порту ${PORT}`);
-    // Run local orders seeding to database on startup
-    await seedLocalOrdersToDb();
+    if (process.env.SQL_HOST && process.env.SQL_USER) {
+      await seedLocalOrdersToDb();
+    }
   });
 }
 
